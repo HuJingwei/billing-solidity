@@ -1,0 +1,31 @@
+{
+  "contract_name": "Charge",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "callID",
+          "type": "uint256"
+        },
+        {
+          "name": "from",
+          "type": "address"
+        }
+      ],
+      "name": "getPrice",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    }
+  ],
+  "unlinked_binary": "0x",
+  "networks": {},
+  "schema_version": "0.0.5",
+  "updated_at": 1507815086820
+}
