@@ -8,7 +8,7 @@ import "../charges/Charge.sol";
 import "../charges/FreeCharge.sol";
 import "../charges/TimesCharge.sol";
 import "../charges/IntervalCharge.sol";
-
+import "../baneficiary/Baneficiary.sol";
 
 contract DbotBilling is BillingBasic, Ownable, Util {
 
@@ -28,6 +28,7 @@ contract DbotBilling is BillingBasic, Ownable, Util {
     }
 
     address attToken;
+    address beneficiary;
     address charge;
     BillingType billingType = BillingType.Free;
     uint arg0;
@@ -45,9 +46,15 @@ contract DbotBilling is BillingBasic, Ownable, Util {
           revert();
       _;
     }
+
+    event Billing(uint _callID, uint _gas, address _from);
+    event GetPrice(uint _callID, uint _gas, address _from, uint _price);
+    event LockPrice(uint _callID, uint _gas, address _from);
+    event TakeFee(uint _callID, uint _gas,address _from);
     
-    function DbotBilling(address _ATT, uint _billingType, uint _arg0, uint _arg1) {
-        attToken = _ATT;
+    function DbotBilling(address _att, address _beneficiary,  uint _billingType, uint _arg0, uint _arg1) {
+        attToken = _att;
+        beneficiary = new Baneficiary(_beneficiary, _att);
         billingType = BillingType(_billingType);
         arg0 = _arg0;
         arg1 = _arg1;
@@ -58,13 +65,9 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         if ( billingType == BillingType.Free ) {
             charge = new FreeCharge();
         } else if ( billingType == BillingType.Times ) {
-            //arg0:每次消费ATT数量
-            //arg1:免费次数
-            charge = new TimesCharge(arg0, arg1);
+            charge = new TimesCharge(arg0, arg1);               //arg0:每次消费ATT数量  arg1:免费次数
         } else if ( billingType == BillingType.Interval ) {
-            //arg0:每段时间消费ATT数量
-            //arg1:分段类型
-            charge = new IntervalCharge(arg0, arg1);
+            charge = new IntervalCharge(arg0, arg1);            //arg0:每段时间消费ATT数量  arg1:分段类型
         } else if ( billingType == BillingType.Other ) {
             revert();
         } else {
@@ -119,9 +122,9 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         Order storage o = orders[_callID];
         address from = o.from;
         uint tokens = o.tokens;
-        uint allowance = ERC20(attToken).allowance(from, owner);
+        uint allowance = ERC20(attToken).allowance(from, beneficiary);
         require(allowance >= tokens);
-        isSucc = ERC20(attToken).transferFrom(from, owner, tokens);
+        isSucc = Baneficiary(beneficiary).transferFrom(from, beneficiary, tokens);
         if (!isSucc) {
             revert();
         } else {
@@ -147,12 +150,13 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         address from = o.from;
         require(o.tokens >= o.fee);
         uint refund = o.tokens - o.fee;
-        ERC20(attToken).approve(owner, refund);
-        isSucc = ERC20(attToken).transferFrom(owner, from, refund);
+        Baneficiary(beneficiary).approve(beneficiary, refund);
+        isSucc = Baneficiary(beneficiary).transferFrom(beneficiary, from, refund);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = true;
             Charge(charge).resetToken(o.from);
+            Baneficiary(beneficiary).increaseProfit(o.fee);
             TakeFee(_callID, o.fee, o.from);
         } else {
             revert();
@@ -174,8 +178,8 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         require(o.isPaid == false);
         address from = o.from;
         uint tokens = o.tokens;
-        ERC20(attToken).approve(owner, tokens);
-        isSucc = ERC20(attToken).transferFrom(owner, from, tokens);
+        Baneficiary(beneficiary).approve(beneficiary, tokens);
+        isSucc = Baneficiary(beneficiary).transferFrom(beneficiary, from, tokens);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
@@ -184,6 +188,14 @@ contract DbotBilling is BillingBasic, Ownable, Util {
             revert();
         }
         return isSucc;
+    }
+
+    function withdrawProfit(uint amount) 
+        onlyOwner
+        public
+        returns(bool) 
+    {
+        return Baneficiary(beneficiary).withdrawProfit(amount);
     }
     
 }

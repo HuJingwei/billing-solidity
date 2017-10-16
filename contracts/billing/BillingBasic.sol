@@ -2,31 +2,6 @@ pragma solidity ^0.4.11;
 
 contract BillingBasic {
 
-    event Billing(
-        uint _callID,
-        uint _gas,
-        address _from
-    );
-
-    event GetPrice(
-        uint _callID,
-        uint _gas,
-        address _from,
-        uint _price
-    );
-
-    event LockPrice(
-        uint _callID,
-        uint _gas,
-        address _from
-    );
-
-    event TakeFee(
-        uint _callID,
-        uint _gas,
-        address _from
-    );
-
     function billing(
         uint _callID,
         address _from,
@@ -44,19 +19,16 @@ contract BillingBasic {
     function lockPrice(
         uint _callID
     ) 
-        public
         returns (bool);
 
     function takeFee(
         uint _callID
     ) 
-        public
         returns (bool);
 
     function unLockPrice(
-      uint _callID
+        uint _callID
     ) 
-      public
-      returns (bool);
+        returns (bool);
 
 }
