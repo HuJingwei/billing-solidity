@@ -28,7 +28,7 @@ contract Baneficiary is Ownable {
         }else {
             revert();
         }
-        ProfitTokensWithdrawn(owner, _amount);
+        ProfitTokensWithdrawn(beneficiary, _amount);
         return isSucc;
     }
 
@@ -36,11 +36,11 @@ contract Baneficiary is Ownable {
         profitTokens = profitTokens.add(_amount);
     }
 
-    function approve(address _spender, uint256 _value) onlyOwner public returns (bool) {
+    function onApprove(address _spender, uint256 _value) onlyOwner public returns (bool) {
         return ERC20(att).approve(_spender, _value);
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) onlyOwner public returns (bool) {
+    function onTransferFrom(address _from, address _to, uint256 _value) onlyOwner public returns (bool) {
         return ERC20(att).transferFrom(_from, _to, _value);
     }
 

@@ -124,7 +124,7 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         uint tokens = o.tokens;
         uint allowance = ERC20(attToken).allowance(from, beneficiary);
         require(allowance >= tokens);
-        isSucc = Baneficiary(beneficiary).transferFrom(from, beneficiary, tokens);
+        isSucc = Baneficiary(beneficiary).onTransferFrom(from, beneficiary, tokens);
         if (!isSucc) {
             revert();
         } else {
@@ -150,8 +150,8 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         address from = o.from;
         require(o.tokens >= o.fee);
         uint refund = o.tokens - o.fee;
-        Baneficiary(beneficiary).approve(beneficiary, refund);
-        isSucc = Baneficiary(beneficiary).transferFrom(beneficiary, from, refund);
+        Baneficiary(beneficiary).onApprove(beneficiary, refund);
+        isSucc = Baneficiary(beneficiary).onTransferFrom(beneficiary, from, refund);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = true;
@@ -178,8 +178,8 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         require(o.isPaid == false);
         address from = o.from;
         uint tokens = o.tokens;
-        Baneficiary(beneficiary).approve(beneficiary, tokens);
-        isSucc = Baneficiary(beneficiary).transferFrom(beneficiary, from, tokens);
+        Baneficiary(beneficiary).onApprove(beneficiary, tokens);
+        isSucc = Baneficiary(beneficiary).onTransferFrom(beneficiary, from, tokens);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
@@ -190,12 +190,16 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         return isSucc;
     }
 
-    function withdrawProfit(uint amount) 
+    function billWithdrawProfit(uint _amount) 
         onlyOwner
         public
         returns(bool) 
     {
-        return Baneficiary(beneficiary).withdrawProfit(amount);
+        return Baneficiary(beneficiary).withdrawProfit(_amount);
+    }
+
+    function onApprove(uint _value) public returns(bool isSucc) {
+        return ERC20(attToken).approve(beneficiary, _value);
     }
     
 }
