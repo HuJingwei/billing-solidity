@@ -4,19 +4,19 @@ contract BillingBasic {
 
     function billing(
         uint _callID,
-        address _from,
-        uint _tokens
+        address _from
     )
         public
         returns (bool);
 
     function getPrice(
-        uint _callID
+        uint _callID, 
+        address _from
     ) 
         public
         returns (uint);
 
-    function lockPrice(
+    function lockToken(
         uint _callID
     ) 
         returns (bool);
