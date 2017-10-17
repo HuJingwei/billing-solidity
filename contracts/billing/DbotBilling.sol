@@ -8,9 +8,10 @@ import "../charges/Charge.sol";
 import "../charges/FreeCharge.sol";
 import "../charges/TimesCharge.sol";
 import "../charges/IntervalCharge.sol";
-import "../baneficiary/Baneficiary.sol";
+import "../lib/SafeMath.sol";
 
-contract DbotBilling is BillingBasic, Ownable, Util {
+contract DbotBilling is BillingBasic, Ownable {
+    using SafeMath for uint256;
 
     enum BillingType {
         Free,
@@ -33,12 +34,16 @@ contract DbotBilling is BillingBasic, Ownable, Util {
     BillingType billingType = BillingType.Free;
     uint arg0;
     uint arg1;
+    uint profitTokens = 0;
     mapping(uint => Order) orders; 
 
     event Billing(uint _callID, uint _gas, address _from);
     event GetPrice(uint _callID, uint _gas, address _from, uint _price);
-    event LockPrice(uint _callID, uint _gas, address _from);
-    event TakeFee(uint _callID, uint _gas,address _from);
+    event LockPrice(uint _callID, uint _gas, address _from, uint _tokens);
+    event TakeFee(uint _callID, uint _gas,address _from, uint _fee);
+    event UnlockToken(uint _callID, uint _gas,address _from, uint _fee);
+    event Allowance(address _from, address _spender, uint _value);
+    event ProfitTokensWithdrawn(address indexed _beneficiary, uint256 _amount);
 
     modifier notCalled(uint _callID) {
       if (orders[_callID].from != 0) 
@@ -54,7 +59,7 @@ contract DbotBilling is BillingBasic, Ownable, Util {
     
     function DbotBilling(address _att, address _beneficiary,  uint _billingType, uint _arg0, uint _arg1) {
         attToken = _att;
-        beneficiary = new Baneficiary(_beneficiary, _att);
+        beneficiary = _beneficiary;
         billingType = BillingType(_billingType);
         arg0 = _arg0;
         arg1 = _arg1;
@@ -81,9 +86,7 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         public
         returns (bool isSucc) 
     {
-        uint fee = getPrice(_callID, _from);
-        uint allowance = onAllowance(_from);
-        require(allowance >= fee);
+        getPrice(_callID, _from);
         isSucc = lockToken(_callID);
         if (!isSucc)
             revert();
@@ -121,22 +124,27 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         require(o.isPaid == false);
         address from = o.from;
         uint fee = o.fee;
-        uint tokens = ERC20(attToken).allowance(from, beneficiary);
+        uint tokens = onAllowance(from);
+        Allowance(from, address(this), tokens);
         require(tokens >= fee);
         o.tokens = tokens;
-        isSucc = Baneficiary(beneficiary).onTransferFrom(from, beneficiary, tokens);
+        if ( billingType == BillingType.Interval ) {
+            tokens = fee;
+        }
+        isSucc = ERC20(attToken).transferFrom(from, address(this), tokens);
         if (!isSucc) {
             revert();
         } else {
-            if (billingType == BillingType.Interval) {
+            if ( billingType == BillingType.Interval ) {
                 o.isFrezon = false;
                 o.isPaid = true;
+                TakeFee(_callID, msg.gas, o.from, tokens);
             } else {
                 o.isFrezon = true;
             }
             Charge(charge).resetToken(o.from);
         }
-        LockPrice(_callID, msg.gas, msg.sender);
+        LockPrice(_callID, msg.gas, msg.sender, tokens);
         return isSucc;
     }
 
@@ -159,13 +167,13 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         address from = o.from;
         require(o.tokens >= o.fee);
         uint refund = o.tokens - o.fee;
-        Baneficiary(beneficiary).onApprove(beneficiary, refund);
-        isSucc = Baneficiary(beneficiary).onTransferFrom(beneficiary, from, refund);
+        ERC20(attToken).approve(address(this), refund);
+        isSucc = ERC20(attToken).transferFrom(address(this), from, refund);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = true;
-            Baneficiary(beneficiary).increaseProfit(o.fee);
-            TakeFee(_callID, o.fee, o.from);
+            profitTokens = profitTokens.add(o.fee);
+            TakeFee(_callID, msg.gas, o.from, o.fee);
         } else {
             revert();
         }
@@ -190,35 +198,42 @@ contract DbotBilling is BillingBasic, Ownable, Util {
         require(o.isPaid == false);
         address from = o.from;
         uint tokens = o.tokens;
-        Baneficiary(beneficiary).onApprove(beneficiary, tokens);
-        isSucc = Baneficiary(beneficiary).onTransferFrom(beneficiary, from, tokens);
+        ERC20(attToken).approve(address(this), tokens);
+        isSucc = ERC20(attToken).transferFrom(address(this), from, tokens);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
-            TakeFee(_callID, o.fee, o.from);
+            UnlockToken(_callID, msg.gas, o.from, o.fee);
         } else {
             revert();
         }
         return isSucc;
     }
 
-    function onApprove(uint _tokens) 
+    function onAllowance(address _from)
+        onlyOwner
+        public
+        returns (uint) 
+    {
+        return ERC20(attToken).allowance(_from, address(this));
+    }
+
+    function withdrawProfit(uint _amount) 
+        onlyOwner
         public
         returns(bool isSucc) 
     {
-        return ERC20(attToken).approve(beneficiary, _tokens);
-    }
-
-    function onAllowance(address _from) returns (uint) {
-        return ERC20(attToken).allowance(_from, beneficiary);
-    }
-
-    function billWithdrawProfit(uint _amount) 
-        onlyOwner
-        public
-        returns(bool) 
-    {
-        return Baneficiary(beneficiary).withdrawProfit(_amount);
+        require(_amount <= profitTokens);
+        uint256 balance = ERC20(attToken).balanceOf(address(this));
+        require(profitTokens <= balance);
+        isSucc = ERC20(attToken).transfer(beneficiary, _amount);
+        if (isSucc) {
+            profitTokens = profitTokens.sub(_amount);
+        }else {
+            revert();
+        }
+        ProfitTokensWithdrawn(beneficiary, _amount);
+        return isSucc;
     }
     
 }
