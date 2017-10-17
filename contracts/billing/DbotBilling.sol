@@ -138,7 +138,8 @@ contract DbotBilling is BillingBasic, Ownable {
             if ( billingType == BillingType.Interval ) {
                 o.isFrezon = false;
                 o.isPaid = true;
-                TakeFee(_callID, msg.gas, o.from, fee);
+                profitTokens = profitTokens.add(tokens);
+                TakeFee(_callID, msg.gas, o.from, tokens);
             } else {
                 o.isFrezon = true;
             }
