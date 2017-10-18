@@ -31,7 +31,7 @@ contract Proxy is Ownable, Util {
         AI ai = AI((AIRegister(aiRegister)).getAI(aiNameEn));
         require(isContract( ai.billingContract() ));
         bill =  ai.billingContract();
-        BillingBasic(bill).billing(callID, msg.sender, 1000);
+        BillingBasic(bill).billing(msg.sender);
         NewCallAI(aiNameEn, callID, ai.aiType());
         BillingBasic(bill).takeFee(callID);
     }

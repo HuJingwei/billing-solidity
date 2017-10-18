@@ -15,17 +15,17 @@ contract BillingBasic {
         public
         returns (uint);
 
-    function lockToken(
+    function freezeToken(
         uint _callID
     ) 
         returns (bool);
 
-    function takeFee(
+    function deductFee(
         uint _callID
     ) 
         returns (bool);
 
-    function unLockPrice(
+    function unfreezeToken(
         uint _callID
     ) 
         returns (bool);

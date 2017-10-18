@@ -5,11 +5,11 @@
       "constant": false,
       "inputs": [
         {
-          "name": "callID",
+          "name": "_callID",
           "type": "uint256"
         },
         {
-          "name": "from",
+          "name": "_from",
           "type": "address"
         }
       ],
@@ -22,10 +22,23 @@
       ],
       "payable": false,
       "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_from",
+          "type": "address"
+        }
+      ],
+      "name": "resetToken",
+      "outputs": [],
+      "payable": false,
+      "type": "function"
     }
   ],
   "unlinked_binary": "0x",
   "networks": {},
   "schema_version": "0.0.5",
-  "updated_at": 1507815086820
+  "updated_at": 1508299958235
 }

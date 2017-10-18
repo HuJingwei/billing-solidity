@@ -40,9 +40,9 @@ contract DbotBilling is BillingBasic, Ownable {
 
     event Billing(uint _callID, uint _gas, address _from);
     event GetPrice(uint _callID, uint _gas, address _from, uint _price);
-    event LockPrice(uint _callID, uint _gas, address _from, uint _tokens);
-    event TakeFee(uint _callID, uint _gas,address _from, uint _fee);
-    event UnlockToken(uint _callID, uint _gas,address _from, uint _fee);
+    event FreezeToken(uint _callID, uint _gas, address _from, uint _tokens);
+    event DeductFee(uint _callID, uint _gas,address _from, uint _fee);
+    event UnfreezeToken(uint _callID, uint _gas,address _from, uint _fee);
     event Allowance(address _from, address _spender, uint _value);
     event ProfitTokensWithdrawn(address indexed _beneficiary, uint256 _amount);
 
@@ -88,13 +88,14 @@ contract DbotBilling is BillingBasic, Ownable {
     {
         callID++;
         getPrice(callID, _from);
-        isSucc = lockToken(callID);
+        isSucc = freezeToken(callID);
         if (!isSucc)
             revert();
         Billing(callID, msg.gas, msg.sender);
         _callID = callID;
+        return (isSucc, _callID);
     } 
-
+        
     function getPrice(uint _callID, address _from)
         onlyOwner
         notCalled(_callID)
@@ -114,7 +115,7 @@ contract DbotBilling is BillingBasic, Ownable {
         GetPrice(_callID, msg.gas, msg.sender, _fee);
     }
 
-    function lockToken(uint _callID)
+    function freezeToken(uint _callID)
         onlyOwner
         called(_callID)
         public
@@ -140,17 +141,17 @@ contract DbotBilling is BillingBasic, Ownable {
                 o.isFrezon = false;
                 o.isPaid = true;
                 profitTokens = profitTokens.add(tokens);
-                TakeFee(_callID, msg.gas, o.from, tokens);
+                DeductFee(_callID, msg.gas, o.from, tokens);
             } else {
                 o.isFrezon = true;
             }
             Charge(charge).resetToken(o.from);
         }
-        LockPrice(_callID, msg.gas, msg.sender, tokens);
+        FreezeToken(_callID, msg.gas, msg.sender, tokens);
         return isSucc;
     }
 
-    function takeFee(uint _callID)
+    function deductFee(uint _callID)
         onlyOwner
         called(_callID)
         public
@@ -174,14 +175,14 @@ contract DbotBilling is BillingBasic, Ownable {
             o.isFrezon = false;
             o.isPaid = true;
             profitTokens = profitTokens.add(o.fee);
-            TakeFee(_callID, msg.gas, o.from, o.fee);
+            DeductFee(_callID, msg.gas, o.from, o.fee);
         } else {
             revert();
         }
         return isSucc;
     }
     
-    function unLockPrice(uint _callID)
+    function unfreezeToken(uint _callID)
         onlyOwner
         called(_callID)
         public
@@ -203,7 +204,7 @@ contract DbotBilling is BillingBasic, Ownable {
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
-            UnlockToken(_callID, msg.gas, o.from, tokens);
+            UnfreezeToken(_callID, msg.gas, o.from, tokens);
         } else {
             revert();
         }
