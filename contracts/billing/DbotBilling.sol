@@ -168,8 +168,7 @@ contract DbotBilling is BillingBasic, Ownable {
         address from = o.from;
         require(o.tokens >= o.fee);
         uint refund = o.tokens - o.fee;
-        ERC20(attToken).approve(address(this), refund);
-        isSucc = ERC20(attToken).transferFrom(address(this), from, refund);
+        isSucc = ERC20(attToken).transfer(from, refund);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = true;
@@ -199,8 +198,7 @@ contract DbotBilling is BillingBasic, Ownable {
         require(o.isPaid == false);
         address from = o.from;
         uint tokens = o.tokens;
-        ERC20(attToken).approve(address(this), tokens);
-        isSucc = ERC20(attToken).transferFrom(address(this), from, tokens);
+        isSucc = ERC20(attToken).transfer(from, tokens);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
