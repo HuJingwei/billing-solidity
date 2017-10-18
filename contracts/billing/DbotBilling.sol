@@ -35,6 +35,7 @@ contract DbotBilling is BillingBasic, Ownable {
     uint arg0;
     uint arg1;
     uint profitTokens = 0;
+    uint callID = 1000;
     mapping(uint => Order) orders; 
 
     event Billing(uint _callID, uint _gas, address _from);
@@ -80,18 +81,18 @@ contract DbotBilling is BillingBasic, Ownable {
         }
     }
 
-    function billing(uint _callID, address _from)
+    function billing(address _from)
         onlyOwner
-        notCalled(_callID)
         public
-        returns (bool isSucc) 
+        returns (bool isSucc, uint _callID) 
     {
-        getPrice(_callID, _from);
-        isSucc = lockToken(_callID);
+        callID++;
+        getPrice(callID, _from);
+        isSucc = lockToken(callID);
         if (!isSucc)
             revert();
-        Billing(_callID, msg.gas, msg.sender);
-        return isSucc;
+        Billing(callID, msg.gas, msg.sender);
+        _callID = callID;
     } 
 
     function getPrice(uint _callID, address _from)

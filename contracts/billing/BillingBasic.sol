@@ -3,11 +3,10 @@ pragma solidity ^0.4.11;
 contract BillingBasic {
 
     function billing(
-        uint _callID,
         address _from
     )
         public
-        returns (bool);
+        returns (bool isSucc, uint callID);
 
     function getPrice(
         uint _callID, 
