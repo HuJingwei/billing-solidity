@@ -21,5 +21,8 @@ const arg1 = 0;
 
 module.exports = function(deployer) {
   deployer.deploy(MiniMeToken);
-  deployer.deploy(ATT);
+  deployer.deploy(ATT).then(function () {
+    deployer.deploy(DbotBilling,ATT.address,beneficiary,billingType,arg0,arg1);
+  });
+  
 };

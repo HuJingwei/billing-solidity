@@ -22,8 +22,7 @@ contract DbotBilling is BillingBasic, Ownable {
 
     struct Order {
         address from;
-        uint tokens;
-        uint fee;
+        uint256 fee;
         bool isFrezon;
         bool isPaid;
     }
@@ -32,33 +31,32 @@ contract DbotBilling is BillingBasic, Ownable {
     address beneficiary;
     address charge;
     BillingType billingType = BillingType.Free;
-    uint arg0;
-    uint arg1;
-    uint profitTokens = 0;
-    uint callID = 1000;
-    mapping(uint => Order) orders; 
+    uint256 arg0;
+    uint256 arg1;
+    uint256 callID = 1000;
+    uint256 profigTokens = 0;
+    mapping(uint256 => Order) orders; 
 
-    event Billing(uint _callID, uint _gas, address _from);
-    event GetPrice(uint _callID, uint _gas, address _from, uint _price);
-    event FreezeToken(uint _callID, uint _gas, address _from, uint _tokens);
-    event DeductFee(uint _callID, uint _gas,address _from, uint _fee);
-    event UnfreezeToken(uint _callID, uint _gas,address _from, uint _fee);
-    event Allowance(address _from, address _spender, uint _value);
-    event ProfitTokensWithdrawn(address indexed _beneficiary, uint256 _amount);
+    event Billing(uint256 _callID, uint256 _gas, address _from);
+    event GetPrice(uint256 _callID, uint256 _gas, address _from, uint256 _price);
+    event FreezeToken(uint256 _callID, uint256 _gas, address _from, uint256 _tokens);
+    event DeductFee(uint256 _callID, uint256 _gas,address _from, uint256 _fee);
+    event UnfreezeToken(uint256 _callID, uint256 _gas,address _from, uint256 _fee);
+    event Allowance(address _from, address _spender, uint256 _value);
 
-    modifier notCalled(uint _callID) {
+    modifier notCalled(uint256 _callID) {
       if (orders[_callID].from != 0) 
           revert();
       _;
     }
 
-    modifier called(uint _callID) {
+    modifier called(uint256 _callID) {
       if (orders[_callID].from == 0) 
           revert();
       _;
     }
     
-    function DbotBilling(address _att, address _beneficiary,  uint _billingType, uint _arg0, uint _arg1) {
+    function DbotBilling(address _att, address _beneficiary,  uint256 _billingType, uint256 _arg0, uint256 _arg1) {
         attToken = _att;
         beneficiary = _beneficiary;
         billingType = BillingType(_billingType);
@@ -84,7 +82,7 @@ contract DbotBilling is BillingBasic, Ownable {
     function billing(address _from)
         onlyOwner
         public
-        returns (bool isSucc, uint _callID) 
+        returns (bool isSucc, uint256 _callID) 
     {
         callID++;
         getPrice(callID, _from);
@@ -95,16 +93,15 @@ contract DbotBilling is BillingBasic, Ownable {
         _callID = callID;
         return (isSucc, _callID);
     } 
-        
-    function getPrice(uint _callID, address _from)
+
+    function getPrice(uint256 _callID, address _from)
         onlyOwner
         notCalled(_callID)
         public
-        returns (uint _fee)
+        returns (uint256 _fee)
     {
         orders[_callID] = Order({
             from : _from,
-            tokens : 0,
             fee : 0,
             isFrezon : false,
             isPaid : false
@@ -115,7 +112,7 @@ contract DbotBilling is BillingBasic, Ownable {
         GetPrice(_callID, msg.gas, msg.sender, _fee);
     }
 
-    function freezeToken(uint _callID)
+    function freezeToken(uint256 _callID)
         onlyOwner
         called(_callID)
         public
@@ -124,34 +121,27 @@ contract DbotBilling is BillingBasic, Ownable {
         Order storage o = orders[_callID];
         require(o.isFrezon == false);
         require(o.isPaid == false);
-        address from = o.from;
-        uint fee = o.fee;
-        uint tokens = onAllowance(from);
-        Allowance(from, address(this), tokens);
-        require(tokens >= fee);
-        o.tokens = tokens;
-        if ( billingType == BillingType.Interval ) {
-            tokens = fee;
-        }
-        isSucc = ERC20(attToken).transferFrom(from, address(this), tokens);
+        isSucc = doPayment(o.from, o.fee);
         if (!isSucc) {
             revert();
         } else {
             if ( billingType == BillingType.Interval ) {
                 o.isFrezon = false;
                 o.isPaid = true;
-                profitTokens = profitTokens.add(tokens);
-                DeductFee(_callID, msg.gas, o.from, tokens);
+                isSucc = withdrawProfit(o.fee);
+                if (!isSucc)
+                    revert();
+                DeductFee(_callID, msg.gas, o.from, o.fee);
             } else {
                 o.isFrezon = true;
+                FreezeToken(_callID, msg.gas, msg.sender, o.fee);
             }
             Charge(charge).resetToken(o.from);
         }
-        FreezeToken(_callID, msg.gas, msg.sender, tokens);
         return isSucc;
     }
 
-    function deductFee(uint _callID)
+    function deductFee(uint256 _callID)
         onlyOwner
         called(_callID)
         public
@@ -167,14 +157,10 @@ contract DbotBilling is BillingBasic, Ownable {
         } 
         require(o.isFrezon == true);
         require(o.isPaid == false);
-        address from = o.from;
-        require(o.tokens >= o.fee);
-        uint refund = o.tokens - o.fee;
-        isSucc = ERC20(attToken).transfer(from, refund);
+        isSucc = withdrawProfit(o.fee);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = true;
-            profitTokens = profitTokens.add(o.fee);
             DeductFee(_callID, msg.gas, o.from, o.fee);
         } else {
             revert();
@@ -182,7 +168,7 @@ contract DbotBilling is BillingBasic, Ownable {
         return isSucc;
     }
     
-    function unfreezeToken(uint _callID)
+    function unfreezeToken(uint256 _callID)
         onlyOwner
         called(_callID)
         public
@@ -198,13 +184,11 @@ contract DbotBilling is BillingBasic, Ownable {
         }
         require(o.isFrezon == true);
         require(o.isPaid == false);
-        address from = o.from;
-        uint tokens = o.tokens;
-        isSucc = ERC20(attToken).transfer(from, tokens);
+        isSucc = ERC20(attToken).transfer(o.from, o.fee);
         if (isSucc) {
             o.isFrezon = false;
             o.isPaid = false;
-            UnfreezeToken(_callID, msg.gas, o.from, tokens);
+            UnfreezeToken(_callID, msg.gas, o.from, o.fee);
         } else {
             revert();
         }
@@ -214,26 +198,34 @@ contract DbotBilling is BillingBasic, Ownable {
     function onAllowance(address _from)
         onlyOwner
         public
-        returns (uint) 
+        returns (uint256) 
     {
         return ERC20(attToken).allowance(_from, address(this));
     }
 
-    function withdrawProfit(uint _amount) 
-        onlyOwner
-        public
+    function doPayment(address from, uint256 _amount) 
+        internal
         returns(bool isSucc) 
     {
-        require(_amount <= profitTokens);
-        uint256 balance = ERC20(attToken).balanceOf(address(this));
-        require(profitTokens <= balance);
-        isSucc = ERC20(attToken).transfer(beneficiary, _amount);
-        if (isSucc) {
-            profitTokens = profitTokens.sub(_amount);
-        }else {
+        uint256 tokens = onAllowance(from);
+        Allowance(from, address(this), tokens);
+        require(tokens >= _amount);
+        isSucc = ERC20(attToken).transferFrom(from, address(this), _amount);
+        if (!isSucc)
             revert();
-        }
-        ProfitTokensWithdrawn(beneficiary, _amount);
+        return isSucc;
+    }
+
+    function withdrawProfit(uint256 _amount) 
+        internal
+        returns(bool isSucc) 
+    {
+        uint256 balance = ERC20(attToken).balanceOf(address(this));
+        require(_amount <= balance);
+        isSucc = ERC20(attToken).transfer(beneficiary, _amount);
+        profigTokens = profigTokens.add(_amount);
+        if (!isSucc)
+            revert();
         return isSucc;
     }
     

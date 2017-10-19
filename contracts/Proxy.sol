@@ -33,7 +33,7 @@ contract Proxy is Ownable, Util {
         bill =  ai.billingContract();
         BillingBasic(bill).billing(msg.sender);
         NewCallAI(aiNameEn, callID, ai.aiType());
-        BillingBasic(bill).takeFee(callID);
+        BillingBasic(bill).deductFee(callID);
     }
 
     function getCallID() returns (uint) {

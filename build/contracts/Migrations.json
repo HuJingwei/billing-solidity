@@ -64,8 +64,8 @@
     "31415926": {
       "events": {},
       "links": {},
-      "address": "0xb4885304057c243d474918bc6dd52ee99e191335",
-      "updated_at": 1508307692839
+      "address": "0xc46bf50bc2788bc51c26c337947a1aa9de83fff4",
+      "updated_at": 1508395799270
     },
     "1507801636475": {
       "events": {},
@@ -75,5 +75,5 @@
     }
   },
   "schema_version": "0.0.5",
-  "updated_at": 1508307692839
+  "updated_at": 1508395799270
 }
