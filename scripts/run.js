@@ -19,14 +19,10 @@ const contract = this.web3.eth.contract(this.billContractsAbi);
 this.bill = contract.at(contractAddress);
 const attContract = this.web3.eth.contract(this.attContractsAbi);
 this.att = attContract.at(attAdd);
-var filter = this.web3.eth.filter('pending');
-
-filter.watch(function (error, log) {
-  console.log(log); //  {"address":"0x0000000000000000000000000000000000000000", "data":"0x0000000000000000000000000000000000000000000000000000000000000000", ...}
-});
-
+// console.log(this.att);
 // this.att.generateTokens.sendTransaction("0x3ae88fe370c39384fc16da2c9e768cf5d2495b48",33,{from:"0x3ae88fe370c39384fc16da2c9e768cf5d2495b48",gas:3000000});
-// this.att.Approval(contractAddress, 1000);
+// this.att.approve.sendTransaction("0x832fc6b937d9b3f4617bc47ee5931161196c5825", 100,{from:"0x3ae88fe370c39384fc16da2c9e768cf5d2495b48",gas:4712387});
+// console.log(this.att.allowance("0x3ae88fe370c39384fc16da2c9e768cf5d2495b48","0x832fc6b937d9b3f4617bc47ee5931161196c5825",{from:"0x3ae88fe370c39384fc16da2c9e768cf5d2495b48",gas:3000000}))
+// console.log(this.att.balanceOf("0x3ae88fe370c39384fc16da2c9e768cf5d2495b48"))
 // this.bill.billing(owner);
 // this.bill.deductFee();
-console.log();
