@@ -1,0 +1,6 @@
+# Dependency directories
+node_modules/
+build/
+installed_contracts/
+package-lock.json
+scripts/deployedAddress.json

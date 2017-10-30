@@ -1,8 +1,0 @@
-strict digraph {
-  billing
-  getPrice
-  lockPrice
-  takeFee
-  unLockPrice
-}
-

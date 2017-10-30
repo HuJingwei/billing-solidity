@@ -83,17 +83,17 @@
         {
           "name": "_from",
           "type": "address"
+        },
+        {
+          "name": "_callID",
+          "type": "uint256"
         }
       ],
       "name": "billing",
       "outputs": [
         {
-          "name": "isSucc",
+          "name": "",
           "type": "bool"
-        },
-        {
-          "name": "callID",
-          "type": "uint256"
         }
       ],
       "payable": false,
@@ -103,5 +103,5 @@
   "unlinked_binary": "0x",
   "networks": {},
   "schema_version": "0.0.5",
-  "updated_at": 1508386625792
+  "updated_at": 1509074910592
 }

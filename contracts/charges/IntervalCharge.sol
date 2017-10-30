@@ -28,7 +28,7 @@ contract IntervalCharge is Charge, Ownable {
         initDaysAfter();
     }
 
-    function initDaysAfter() onlyOwner {
+    function initDaysAfter() internal {
         if (intervalType == IntervalType.day) {
             daysAfter = 1;
           } else if (intervalType == IntervalType.month) {
@@ -40,7 +40,7 @@ contract IntervalCharge is Charge, Ownable {
           }
     }
 
-    function getPrice(uint256, address _from) onlyOwner returns (uint256) {
+    function getPrice(uint256, address _from) onlyOwner public returns (uint256) {
         return isFree(_from) ? 0 : amount;
     }
 
@@ -49,7 +49,7 @@ contract IntervalCharge is Charge, Ownable {
         return now > token.end ? false : true;
     }
 
-    function resetToken(address _from) onlyOwner {
+    function resetToken(address _from) onlyOwner public {
         tokens[_from] = Token({
               start: now,
               end : now + daysAfter * 1 days

@@ -2,7 +2,6 @@ pragma solidity ^0.4.11;
 
 import "./BillingBasic.sol";
 import "../lib/Ownable.sol";
-import "../lib/Util.sol";
 import "../lib/ERC20.sol";
 import "../charges/Charge.sol";
 import "../charges/FreeCharge.sol";
@@ -30,10 +29,10 @@ contract DbotBilling is BillingBasic, Ownable {
     address attToken;
     address beneficiary;
     address charge;
+    address controller;
     BillingType billingType = BillingType.Free;
     uint256 arg0;
     uint256 arg1;
-    uint256 callID = 1000;
     uint256 profigTokens = 0;
     mapping(uint256 => Order) orders; 
 
@@ -43,6 +42,13 @@ contract DbotBilling is BillingBasic, Ownable {
     event DeductFee(uint256 _callID, uint256 _gas,address _from, uint256 _fee);
     event UnfreezeToken(uint256 _callID, uint256 _gas,address _from, uint256 _fee);
     event Allowance(address _from, address _spender, uint256 _value);
+    event WithdrawProfit(address _beneficiary, uint256 _amount);
+    event ChangedController(address _oldController, address _newController);
+
+    modifier onlyController() {
+        require(msg.sender == controller);
+        _;
+    }
 
     modifier notCalled(uint256 _callID) {
       if (orders[_callID].from != 0) 
@@ -56,12 +62,19 @@ contract DbotBilling is BillingBasic, Ownable {
       _;
     }
     
-    function DbotBilling(address _att, address _beneficiary,  uint256 _billingType, uint256 _arg0, uint256 _arg1) {
+    function DbotBilling(
+        address _att, 
+        address _beneficiary,  
+        uint256 _billingType, 
+        uint256 _arg0, 
+        uint256 _arg1
+    ) {
         attToken = _att;
         beneficiary = _beneficiary;
         billingType = BillingType(_billingType);
         arg0 = _arg0;
         arg1 = _arg1;
+        controller = msg.sender;
         initCharge();
     }
 
@@ -79,33 +92,33 @@ contract DbotBilling is BillingBasic, Ownable {
         }
     }
 
-    function billing(address _from)
-        onlyOwner
-        public
-        returns (bool isSucc, uint256 _callID) 
-    {
-        callID++;
-        getPrice(callID, _from);
-        isSucc = freezeToken(callID);
-        if (!isSucc)
-            revert();
-        Billing(callID, msg.gas, msg.sender);
-        _callID = callID;
-        return (isSucc, _callID);
-    } 
-
-    function getPrice(uint256 _callID, address _from)
-        onlyOwner
+    function billing(address _from, uint256 _callID)
+        onlyController
         notCalled(_callID)
         public
-        returns (uint256 _fee)
+        returns (bool isSucc) 
     {
+        isSucc = false;
         orders[_callID] = Order({
             from : _from,
             fee : 0,
             isFrezon : false,
             isPaid : false
         });
+        getPrice(_callID, _from);
+        isSucc = freezeToken(_callID);
+        if (!isSucc)
+            revert();
+        Billing(_callID, msg.gas, msg.sender);
+        return isSucc;
+    } 
+
+    function getPrice(uint256 _callID, address _from)
+        onlyController
+        called(_callID)
+        public
+        returns (uint256 _fee)
+    {
         Order storage o = orders[_callID];
         _fee = Charge(charge).getPrice(_callID, o.from);
         o.fee = _fee;
@@ -113,7 +126,7 @@ contract DbotBilling is BillingBasic, Ownable {
     }
 
     function freezeToken(uint256 _callID)
-        onlyOwner
+        onlyController
         called(_callID)
         public
         returns (bool isSucc)
@@ -142,7 +155,7 @@ contract DbotBilling is BillingBasic, Ownable {
     }
 
     function deductFee(uint256 _callID)
-        onlyOwner
+        onlyController
         called(_callID)
         public
         returns (bool isSucc)
@@ -169,7 +182,7 @@ contract DbotBilling is BillingBasic, Ownable {
     }
     
     function unfreezeToken(uint256 _callID)
-        onlyOwner
+        onlyController
         called(_callID)
         public
         returns (bool isSucc)
@@ -196,21 +209,20 @@ contract DbotBilling is BillingBasic, Ownable {
     }
 
     function onAllowance(address _from)
-        onlyOwner
-        public
+        internal
         returns (uint256) 
     {
         return ERC20(attToken).allowance(_from, address(this));
     }
 
-    function doPayment(address from, uint256 _amount) 
+    function doPayment(address _from, uint256 _amount) 
         internal
         returns(bool isSucc) 
     {
-        uint256 tokens = onAllowance(from);
-        Allowance(from, address(this), tokens);
+        uint256 tokens = onAllowance(_from);
+        Allowance(_from, address(this), tokens);
         require(tokens >= _amount);
-        isSucc = ERC20(attToken).transferFrom(from, address(this), _amount);
+        isSucc = ERC20(attToken).transferFrom(_from, address(this), _amount);
         if (!isSucc)
             revert();
         return isSucc;
@@ -226,7 +238,12 @@ contract DbotBilling is BillingBasic, Ownable {
         profigTokens = profigTokens.add(_amount);
         if (!isSucc)
             revert();
+        WithdrawProfit(beneficiary,_amount);
         return isSucc;
     }
     
+    function changeController(address _newController) onlyOwner {
+        ChangedController(controller, _newController);
+        controller = _newController;
+    }
 }
